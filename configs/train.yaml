@@ -1,0 +1,18 @@
+seed: 42
+# Random seed for reproducibility
+
+trainer:
+  max_epochs: 50
+
+model:
+  input_size: 1       # number of features per timestep
+  hidden_size: 64     # LSTM hidden layer size
+  num_layers: 2       # number of LSTM layers
+  dropout: 0.2        # dropout between LSTM layers
+  lr: 1e-3            # learning rate
+
+data:
+  csv_path: data/BTCUSDT.csv
+  seq_length: 30      # length of input sequence
+  batch_size: 64
+  val_split: 0.2      # fraction of data for validation
