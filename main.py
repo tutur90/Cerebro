@@ -105,10 +105,8 @@ def main():
     L.seed_everything(hparams["seed"])
 
     # Logger setup
-    logger = TensorBoardLogger(
-        save_dir="logs",
-        name=hparams.get("experiment_name", "time_series_experiment")
-    )
+    logger = TensorBoardLogger(**hparams["logger"])
+    
 
     # Instantiate DataModule and Model
     dm = TimeSeriesDataModule(**hparams["data"])
@@ -121,6 +119,7 @@ def main():
     )
 
     trainer.fit(model, dm)
+    
     trainer.test(model, datamodule=dm)
 
 if __name__ == "__main__":

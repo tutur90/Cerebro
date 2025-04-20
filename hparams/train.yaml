@@ -1,7 +1,17 @@
 seed: 42
 
+logger:
+  save_dir: logs/
+  name: LSTM
+  log_graph: true
+
+
 trainer:
   max_epochs: 50
+  enable_checkpointing: true
+  enable_model_summary: true
+  enable_progress_bar: true
+  
 
 model:
   input_dim: 4
@@ -11,7 +21,7 @@ model:
 
 data:
   csv_path: data/BTCUSDT.csv
-  seq_length: 30      # length of input sequence
+  seq_length: 24      # length of input sequence
   batch_size: 64
   val_split: 0.2
   test_split: 0.1
