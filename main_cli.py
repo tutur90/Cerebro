@@ -17,9 +17,7 @@ class TimeSeriesModel(L.LightningModule):
         self.lstm = torch.nn.LSTM(input_dim, hidden_dim, batch_first=True)
         self.fc = torch.nn.Linear(hidden_dim, output_dim)
         
-        print(f"Model initialized with input_dim={input_dim}, hidden_dim={hidden_dim}, output_dim={output_dim}")
-        self.save_hyperparameters()
-        print(self.hparams)
+
 
     def forward(self, x):
         x_last = x[:, -1, :]

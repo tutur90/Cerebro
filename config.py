@@ -3,7 +3,7 @@ from lightning.pytorch.loggers import Logger
 from lightning.pytorch import LightningModule, Trainer
 from lightning.pytorch.cli import SaveConfigCallback
 
-from main import TimeSeriesModel, TimeSeriesDataModule
+from main_hyamel import TimeSeriesModel, TimeSeriesDataModule
 
 
 class LoggerSaveConfigCallback(SaveConfigCallback):

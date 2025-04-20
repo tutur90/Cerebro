@@ -1,66 +1,46 @@
 import torch
-import lightning as L
 from torch.utils.data import DataLoader, Dataset
-
+import lightning as L
+import pandas as pd
+import yaml
+from argparse import ArgumentParser
 from lightning.pytorch.loggers import TensorBoardLogger
 
-from argparse import ArgumentParser
-from hyperpyyaml import load_hyperpyyaml
-
-import pandas as pd
-
-
-# Lightning Module for LSTM Model
 class TimeSeriesModel(L.LightningModule):
-    def __init__(self,  hparams):
+    def __init__(self, input_dim=4, hidden_dim=32, output_dim=4, lr=0.002):
         super().__init__()
-        # self.hparams = hparams
-        self.save_hyperparameters(hparams)
-        self.modules = hparams["modules"]
-        
-        self.optimizer = hparams["optimizer"]
+        self.save_hyperparameters()  # Saves input args to self.hparams
+        self.lstm = torch.nn.LSTM(input_dim, hidden_dim, batch_first=True)
+        self.fc = torch.nn.Linear(hidden_dim, output_dim)
 
     def forward(self, x):
-        
         x_last = x[:, -1, :]
-        x = x - x_last.unsqueeze(1)
-        _, (hidden, _) = self.modules.lstm(x)
-        
-        x = self.modules.proj(hidden[-1]) + x_last
-        
-        return x
+        x_centered = x - x_last.unsqueeze(1)
+        _, (hidden, _) = self.lstm(x_centered)
+        return self.fc(hidden[-1]) + x_last
+
+    def _shared_step(self, batch, stage):
+        inputs, targets = batch
+        outputs = self(inputs)
+        loss = torch.nn.functional.mse_loss(outputs, targets)
+        self.log(f"{stage}_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+        return loss
 
     def training_step(self, batch, batch_idx):
-        inputs, targets = batch
-        outputs = self(inputs)
-        loss = torch.nn.functional.mse_loss(outputs, targets)
-        self.log('train_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
-        return loss
-    
+        return self._shared_step(batch, "train")
+
     def validation_step(self, batch, batch_idx):
-        inputs, targets = batch
-        outputs = self(inputs)
-        loss = torch.nn.functional.mse_loss(outputs, targets)
-        self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
-        return loss
+        return self._shared_step(batch, "val")
+
     def test_step(self, batch, batch_idx):
-        inputs, targets = batch
-        outputs = self(inputs)
-        loss = torch.nn.functional.mse_loss(outputs, targets)
-        self.log('test_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
-        return loss
+        return self._shared_step(batch, "test")
 
     def configure_optimizers(self):
-        return self.optimizer
+        return torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
 
 
-# Custom dataset for time-series data
 class StockDataset(Dataset):
     def __init__(self, data, seq_length=5):
-        # scaler = MinMaxScaler(feature_range=(-1, 1))
-        # data = scaler.fit_transform(data.values)
-        # self.data = data
-
         self.data = torch.tensor(data.values, dtype=torch.float32)
         self.seq_length = seq_length
 
@@ -69,85 +49,79 @@ class StockDataset(Dataset):
 
     def __getitem__(self, index):
         return (
-            self.data[index:index+self.seq_length],
-            self.data[index+self.seq_length],
+            self.data[index:index + self.seq_length],
+            self.data[index + self.seq_length],
         )
 
 
 class TimeSeriesDataModule(L.LightningDataModule):
-    def __init__(self, csv_path, seq_length, batch_size, val_split=0.2, test_split=0.1):
-        """
-        Args:
-            csv_path (str): Path to the CSV file containing time series data.
-            seq_length (int): Length of the sequences to be generated.
-            batch_size (int): Size of the batches for training and validation.
-            val_split (float): Fraction of the dataset to be used for validation.
-        """ 
+    def __init__(self, csv_path, seq_length, batch_size, val_split=0.2, test_split=0.1, num_workers=4):
         super().__init__()
         self.csv_path = csv_path
         self.seq_length = seq_length
         self.batch_size = batch_size
         self.val_split = val_split
         self.test_split = test_split
+        self.num_workers = num_workers
 
     def setup(self, stage=None):
-        
-        print(f"Loading data from {self.csv_path}")
-        
         df = pd.read_csv(self.csv_path, index_col='Date')
         df.sort_index(inplace=True)
-        
-        test_data = df[-int(len(df) * self.test_split):]
-        train_data = df[:-int(len(df) * self.test_split)]
-        val_data = train_data[-int(len(train_data) * self.val_split):]
-        train_data = train_data[:-int(len(train_data) * self.val_split)]
-        self.train_dataset = StockDataset(data=train_data, seq_length=self.seq_length)
-        self.val_dataset = StockDataset(data=val_data, seq_length=self.seq_length)
-        self.test_dataset = StockDataset(data=test_data, seq_length=self.seq_length)
-        
+
+        test_len = int(len(df) * self.test_split)
+        val_len = int((len(df) - test_len) * self.val_split)
+
+        test_data = df[-test_len:]
+        train_data = df[:-test_len]
+        val_data = train_data[-val_len:]
+        train_data = train_data[:-val_len]
+
+        self.train_dataset = StockDataset(train_data, self.seq_length)
+        self.val_dataset = StockDataset(val_data, self.seq_length)
+        self.test_dataset = StockDataset(test_data, self.seq_length)
 
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=15)
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers)
+
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=self.batch_size, num_workers=15)
+        return DataLoader(self.val_dataset, batch_size=self.batch_size, num_workers=self.num_workers)
+
     def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=self.batch_size, num_workers=15)
+        return DataLoader(self.test_dataset, batch_size=self.batch_size, num_workers=self.num_workers)
 
-    # def val_dataloader(self):
-    #     return DataLoader(self.val_dataset, batch_size=self.batch_size)
 
-if __name__ == '__main__':
-    
+def load_config(path):
+    with open(path, encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
+def main():
     parser = ArgumentParser()
-    
-    parser.add_argument(
-        "hparams",
-        type=str,
-        default="configs/train.yaml",
-        help="Path to the configuration file."
-    )
-    parser.add_argument(
-        "--hparams",
-        type=str,
-        default="configs/train.yaml",
-        help="Path to the configuration file."
-    )
-    
+    parser.add_argument("hparams", type=str, default="configs/train.yaml", help="Path to the configuration file.")
     args = parser.parse_args()
+
+    hparams = load_config(args.hparams)
     
-    # Load hyperparameters file with command-line overrides
-    with open(args.hparams, encoding="utf-8") as fin:
-        hparams = load_hyperpyyaml(fin)
-    
-    dm = TimeSeriesDataModule(
-        **hparams["data"]
-        
-    )
-    # Initialize model
-    model = TimeSeriesModel(
-        hparams=hparams
+    L.seed_everything(hparams["seed"])
+
+    # Logger setup
+    logger = TensorBoardLogger(
+        save_dir="logs",
+        name=hparams.get("experiment_name", "time_series_experiment")
     )
 
-    # Train model
-    trainer = L.Trainer(**hparams["trainer"])
+    # Instantiate DataModule and Model
+    dm = TimeSeriesDataModule(**hparams["data"])
+    model = TimeSeriesModel(**hparams["model"])
+
+    # Trainer
+    trainer = L.Trainer(
+        logger=logger,
+        **hparams["trainer"]
+    )
+
     trainer.fit(model, dm)
+    trainer.test(model, datamodule=dm)
+
+if __name__ == "__main__":
+    main()
