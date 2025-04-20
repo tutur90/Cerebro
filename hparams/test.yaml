@@ -44,12 +44,12 @@ model:
   input_dim: 4
   hidden_dim: 32
   output_dim: 4
+
+
 data:
   csv_path: data/BTCUSDT.csv
   seq_length: 10
   batch_size: 32
   val_split: 0.2
   test_split: 0.1
-optimizer: torch.optim.Adam
-# lr_scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau
-ckpt_path: null
+# optimizer: torch.optim.Adam

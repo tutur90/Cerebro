@@ -1,0 +1,66 @@
+#######
+
+# Basic configuration for LSTM model training
+
+# This configuration is used for training a simple LSTM model on time series data.
+# It includes settings for the model architecture, training parameters, and data preprocessing.
+
+#######
+
+
+
+seed: 42
+__set_seed: !apply:lightning.seed_everything [!ref <seed>]
+# Random seed for reproducibility
+
+
+logger: !new:lightning.pytorch.loggers.TensorBoardLogger
+  save_dir: logs/
+  name: LSTM
+  version: 0
+  log_graph: true
+ 
+
+trainer:
+  max_epochs: 50
+  precision: null
+  accelerator: cpu
+  logger: !ref <logger>
+  enable_checkpointing: true
+  enable_model_summary: true
+  enable_progress_bar: true
+
+
+lr: 1e-3            # learning rate
+weight_decay: 1e-5
+
+input_size:: 4
+d_model: 64
+output_size: 4
+
+lstm: !new:torch.nn.LSTM
+  input_size: !ref <input_size>  # number of features per timestep
+  hidden_size: 64     # LSTM hidden layer size
+  num_layers: 1       # number of LSTM layers
+  dropout: 0.2        # dropout between LSTM layers
+
+proj: !new:torch.nn.Linear
+  in_features: !ref <d_model>
+  out_features: !ref <output_size>
+  bias: true
+
+modules:
+  lstm: !ref <lstm>
+  proj: !ref <proj>
+
+optimizer: !new:torch.optim.Adam
+  params: !ref <modules>
+  lr: !ref <lr>
+  weight_decay: !ref <weight_decay>
+
+
+data:
+  csv_path: data/BTCUSDT.csv
+  seq_length: 30      # length of input sequence
+  batch_size: 64
+  val_split: 0.2      # fraction of data for validation

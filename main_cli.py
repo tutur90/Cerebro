@@ -16,6 +16,10 @@ class TimeSeriesModel(L.LightningModule):
         super().__init__()
         self.lstm = torch.nn.LSTM(input_dim, hidden_dim, batch_first=True)
         self.fc = torch.nn.Linear(hidden_dim, output_dim)
+        
+        print(f"Model initialized with input_dim={input_dim}, hidden_dim={hidden_dim}, output_dim={output_dim}")
+        self.save_hyperparameters()
+        print(self.hparams)
 
     def forward(self, x):
         x_last = x[:, -1, :]
@@ -115,7 +119,7 @@ class TimeSeriesDataModule(L.LightningDataModule):
 if __name__ == '__main__':
     # Create DataLoader
     
-    cli = LightningCLI(TimeSeriesModel, TimeSeriesDataModule, save_config_callback=LoggerSaveConfigCallback)
+    cli = LightningCLI(TimeSeriesModel, TimeSeriesDataModule)
     
     # dm = TimeSeriesDataModule(
     #     csv_path='data/BTCUSDT.csv',
