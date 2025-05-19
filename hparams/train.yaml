@@ -15,13 +15,13 @@ trainer:
 
 model:
   input_dim: 4
-  hidden_dim: 32
-  output_dim: 4
+  hidden_dim: 128
+  output_dim: 128
   lr: 0.002
 
 data:
   csv_path: data/BTCUSDT.csv
-  seq_length: 24      # length of input sequence
+  seg_length: 60
   batch_size: 64
   val_split: 0.2
   test_split: 0.1

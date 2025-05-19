@@ -1,0 +1,17 @@
+seed: 42
+data:
+  csv_path: data/BTCUSDT.csv
+  src_length: 60
+  tgt_length: 60
+  batch_size: 32
+  val_split: 0.2
+  test_split: 0.1
+model:
+  input_dim: 4
+  hidden_dim: 32
+  output_dim: 4
+  lr: 0.002
+trainer:
+  output_dir: "./results"
+  logging_dir: "./logs"
+  max_epochs: 10
