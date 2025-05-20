@@ -1,28 +1,25 @@
 seed: 42
 
 logger:
-  save_dir: logs/
-  name: LSTM
-  log_graph: true
+  save_dir: logs
+  name: experiment1
 
-
-trainer:
-  max_epochs: 50
-  enable_checkpointing: true
-  enable_model_summary: true
-  enable_progress_bar: true
-  
+data:
+  data_path: data/BTCUSDT/
+  src_length: 24
+  tgt_length: 1
+  seg_length: 60
+  batch_size: 32
+  val_split: 0.2
+  test_split: 0.1
+  num_workers: 4
 
 model:
   input_dim: 4
-  hidden_dim: 128
-  output_dim: 128
+  hidden_dim: 32
+  output_dim: 32
+  seg_length: 60
   lr: 0.002
 
-data:
-  csv_path: data/BTCUSDT.csv
-  seg_length: 60
-  batch_size: 64
-  val_split: 0.2
-  test_split: 0.1
-  num_workers: 8
+trainer:
+  max_epochs: 20
